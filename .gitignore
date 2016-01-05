@@ -1,0 +1,4 @@
+# C#
+*.suo
+bin/
+obj/
