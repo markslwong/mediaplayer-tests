@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -24,6 +25,7 @@ namespace MediaPlayerTests
         private readonly MediaElement[] _mediaPlayers;
         private readonly DispatcherTimer _timer;
         private readonly string[] _files;
+        private readonly long[] _sizes;
 
         private int _indexCell = -MaxSwitch;
         private int _indexFile;
@@ -59,11 +61,18 @@ namespace MediaPlayerTests
             _cells.Add(Cell42);
             _cells.Add(Cell43);
             _cells.Add(Cell44);
-
-            _files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Videos\\IliaSequencer");
-
+            
             _mediaPlayers = new MediaElement[_cells.Count];
 
+            _files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Videos\\IliaSequencer");
+            _sizes = new long[_files.Length];
+
+            for (var i = 0; i < _files.Length; ++i)
+            {
+                var fileInfo = new FileInfo(_files[i]);
+                _sizes[i] = fileInfo.Length;
+            }
+            
             _timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(SwitchTimeSeconds)
@@ -94,19 +103,21 @@ namespace MediaPlayerTests
             for (int i = 0; i < maxSwitch; ++i)
             {
                 var indexCell = (_indexCell + i) % _cells.Count;
+                var indexFile = (_indexFile + i) % _files.Length;
 
-                StopVideo(indexCell);
+                StopVideo(indexCell, indexFile);
             }
 
             _indexCell = (_indexCell + maxSwitch) % _cells.Count;
+            _indexFile = (_indexFile + maxSwitch) % _files.Length;
 
             for (int i = 0; i < maxSwitch; ++i)
             {
                 var indexCell = (_indexCell + i) % _cells.Count;
+                var indexFile = (_indexFile + i) % _files.Length;
 
-                PlayVideo(indexCell, _indexFile);
+                PlayVideo(indexCell, indexFile);
 
-                _indexFile = _indexFile % _files.Length;
             }
         }
 
@@ -126,11 +137,13 @@ namespace MediaPlayerTests
             _mediaPlayers[indexCell] = mediaElement;
             _cells[indexCell].Children.Add(mediaElement);
 
+            //GC.AddMemoryPressure(_sizes[indexFile]); // Tested this but it does not help.
+
             mediaElement.Source = new Uri(_files[indexFile]);
             mediaElement.Play();
         }
 
-        private void StopVideo(int indexCell)
+        private void StopVideo(int indexCell, int indexFile)
         {
             if (indexCell < 0)
                 return;
@@ -143,6 +156,8 @@ namespace MediaPlayerTests
 
             mediaElement.Stop();
             mediaElement.Source = null;
+
+            // GC.RemoveMemoryPressure(_sizes[indexFile]); // Tested this but it does not help.
 
             _mediaPlayers[indexCell] = null;
             _cells[indexCell].Children.Clear();
