@@ -17,7 +17,7 @@ namespace MediaPlayerTests
     public partial class MainWindow : Window
     {
         private const int MaxVideos = 5;
-        private const int SwitchTimeMilliseconds = 1000;
+        private const int SwitchTimeMilliseconds = 60000;
         private const int DumpEverySwitchCount = int.MaxValue;
 
         private readonly List<StackPanel> _cells = new List<StackPanel>();

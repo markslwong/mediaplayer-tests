@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,10 +13,10 @@ namespace MediaPlayerTests
     {
         private readonly HostVisual _HostVisual;
         private readonly Thread _Thread;
-
+        
         private VisualTarget _VisualTarget;
-        private LeakyMediaElement _MediaElement;
-
+        private MediaElement _MediaElement;
+        
         private VisualTargetPresentationSource _VisualTargetSource;
 
         private volatile bool _CanPlay;
@@ -46,13 +45,22 @@ namespace MediaPlayerTests
 
         public void Dispose()
         {
-            lock (_Thread)
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                Dispatcher dispatcher = Dispatcher.FromThread(_Thread);
-                if (dispatcher != null)
-                    dispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
-                else
-                    _Thread.Abort();
+                lock (_Thread)
+                {
+                    Dispatcher dispatcher = Dispatcher.FromThread(_Thread);
+                    if (dispatcher != null)
+                        dispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
+                    else
+                        _Thread.Abort();
+                }
             }
         }
 
@@ -135,7 +143,8 @@ namespace MediaPlayerTests
                 {
                     lock (_Thread)
                     {
-                        DestroyMediaPlayer();
+                        if (_CanPlay)
+                            DestroyMediaPlayer();
                     }
                 });
             }
@@ -143,7 +152,7 @@ namespace MediaPlayerTests
 
         private void CreateMediaPlayer()
         {
-            _MediaElement = new LeakyMediaElement
+            _MediaElement = new MediaElement
             {
                 LoadedBehavior = MediaState.Manual,
                 UnloadedBehavior = MediaState.Manual,
@@ -160,10 +169,7 @@ namespace MediaPlayerTests
             if (_CanPlay && _NextToPlay != null)
             {
                 _CanPlay = false;
-
-                FileInfo fileInfo = new FileInfo(_NextToPlay.FileName);
-                _MediaElement.SetMemoryPressure(fileInfo.Length);
-
+                
                 _MediaElement.Source = new Uri(_NextToPlay.FileName);
                 _MediaElement.Width = _NextToPlay.Width;
                 _MediaElement.Height = _NextToPlay.Height;
@@ -180,9 +186,10 @@ namespace MediaPlayerTests
                 _MediaElement.MediaOpened -= MediaPlayer_Opened;
                 _MediaElement.MediaEnded -= MediaPlayer_Ended;
                 _MediaElement.MediaFailed -= MediaPlayer_Failed;
-                
-                _MediaElement.Close();
 
+                _MediaElement.Stop();
+                _MediaElement.Close();
+                
                 _MediaElement = null;
             }
 
@@ -212,15 +219,11 @@ namespace MediaPlayerTests
                 if (_VisualTarget != null)
                 {
                     _VisualTarget.Dispose();
-
-                    GC.SuppressFinalize(_VisualTarget);
                 }
 
                 lock (_Thread)
                 {
                     DestroyMediaPlayer();
-
-                    GC.SuppressFinalize(_MediaElement);
                 }
 
                 _CanPlay = false;
@@ -264,26 +267,6 @@ namespace MediaPlayerTests
             public override bool IsDisposed
             {
                 get { return false; }
-            }
-        }
-
-        private class LeakyMediaElement : MediaElement
-        {
-            private long _MemoryPressure;
-            
-            public void SetMemoryPressure(long bytesAllocated)
-            {
-                if (_MemoryPressure > 0)
-                    GC.RemoveMemoryPressure(_MemoryPressure);
-
-                _MemoryPressure = bytesAllocated;
-                GC.AddMemoryPressure(_MemoryPressure);
-            }
-
-            ~LeakyMediaElement()
-            {
-                if (_MemoryPressure > 0)
-                    GC.RemoveMemoryPressure(_MemoryPressure);
             }
         }
     }

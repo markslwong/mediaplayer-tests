@@ -54,6 +54,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="MediaElementWrapper.cs" />
     <Compile Include="MediaPlaybackThread.cs" />
     <Compile Include="VisualTargetPresentationSource.cs" />
     <Page Include="MainWindow.xaml">
