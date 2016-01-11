@@ -17,7 +17,6 @@ namespace MediaPlayerTests
             Closed // Media element is closed.  Unable to use or revive the wrapped media element from this point.
         }
 
-        private bool _PlayRequest;
         private bool _ShutdownRequest;
         private Uri _OpenRequest;
 
@@ -43,9 +42,14 @@ namespace MediaPlayerTests
 
         public bool Repeat { get; set; }
 
+        public MediaElement Subject
+        {
+            get { return _MediaElement; }
+        }
+
         public void Open(Uri uri)
         {
-            if (_Phase != Phase.Opening)
+            if (_Phase == Phase.Opening)
             {
                 _OpenRequest = uri;
             }
@@ -54,6 +58,7 @@ namespace MediaPlayerTests
                 _Phase = Phase.Opening;
 
                 _MediaElement.Source = uri;
+                _MediaElement.Play(); // File will not open unless you call Play()
             }
         }
 
@@ -61,22 +66,10 @@ namespace MediaPlayerTests
         {
             _ShutdownRequest = true;
 
-            if (_Phase != Phase.Opening && 
+            if (_Phase != Phase.Opening && // Handle this when our open request returns
                 _Phase != Phase.Closed)
             {
                 Shutdown();
-            }
-        }
-
-        public void Play()
-        {
-            if (_Phase == Phase.Opened)
-            {
-                _MediaElement.Play();
-            }
-            else
-            {
-                _PlayRequest = true;
             }
         }
 
@@ -99,6 +92,7 @@ namespace MediaPlayerTests
         {
             _Phase = Phase.Opened;
 
+            // If a shutdown request has occured during the opening process, then we execute our shutdown
             if (_ShutdownRequest)
             {
                 Shutdown();
@@ -108,6 +102,7 @@ namespace MediaPlayerTests
                 if (MediaOpened != null)
                     MediaOpened.Invoke(sender, args);
 
+                // If another open request has occured during the opening process, then we execute that open
                 if (_OpenRequest != null)
                 {
                     Uri uri = _OpenRequest;
@@ -115,11 +110,6 @@ namespace MediaPlayerTests
 
                     // Feed the request back into the Open() function
                     Open(uri); 
-                }
-                else if (_PlayRequest)
-                {
-                    _PlayRequest = false;
-                    _MediaElement.Play();
                 }
             }
         }
@@ -166,6 +156,12 @@ namespace MediaPlayerTests
         {
             get { return _MediaElement.Height; }
             set { _MediaElement.Height = value; }
+        }
+
+        public Visibility Visibility
+        {
+            get { return _MediaElement.Visibility; }
+            set { _MediaElement.Visibility = value; }
         }
     }
 }

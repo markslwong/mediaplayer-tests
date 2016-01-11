@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Threading;
 using JetBrains.Profiler.Windows.Api;
 
@@ -16,13 +14,12 @@ namespace MediaPlayerTests
     /// </summary>
     public partial class MainWindow : Window
     {
-        private const int MaxVideos = 5;
-        private const int SwitchTimeMilliseconds = 60000;
+        private const int MaxVideos = 3;
+        private const int SwitchTimeMilliseconds = 1000;
         private const int DumpEverySwitchCount = int.MaxValue;
 
         private readonly List<StackPanel> _cells = new List<StackPanel>();
-        private readonly HostVisual[] _hosts;
-        private readonly MediaPlaybackThread[] _threads;
+        private readonly MediaElementWrapper[] _wrappers;
         private readonly DispatcherTimer _timer;
         
         private readonly string[] _files;
@@ -63,26 +60,7 @@ namespace MediaPlayerTests
             _cells.Add(Cell43);
             _cells.Add(Cell44);
 
-            _threads = new MediaPlaybackThread[_cells.Count];
-            _hosts = new HostVisual[_cells.Count];
-
-            for (var i = 0; i < _cells.Count; ++i)
-            {
-                var host = new HostVisual();
-                
-                _hosts[i] = host;
-                _threads[i] = new MediaPlaybackThread(host);
-                
-                var visualWrapper = new VisualWrapper
-                {
-                    Child = host,
-                    Width = 320,
-                    Height = 240,
-                    IsHitTestVisible = false
-                };
-
-                _cells[i].Children.Add(visualWrapper);
-            }
+            _wrappers = new MediaElementWrapper[_cells.Count];
 
             _files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Videos\\IliaSequencer");
             _sizes = new long[_files.Length];
@@ -142,8 +120,21 @@ namespace MediaPlayerTests
 
         private void PlayVideo(int indexCell, int indexFile)
         {
-            Debug.Assert(_threads[indexCell] != null);
-            _threads[indexCell].Play(_files[indexFile], 320, 240);
+            MediaElementWrapper wrapper = new MediaElementWrapper
+            {
+                Repeat = true,
+                IsMuted = true
+            };
+
+            wrapper.Subject.Visibility = Visibility.Visible;
+
+            wrapper.Open(new Uri(_files[indexFile]));
+
+            _wrappers[indexCell] = wrapper;
+
+            _cells[indexCell].Children.Clear();
+            _cells[indexCell].Children.Add(wrapper.Subject);
+
             Console.WriteLine("Now playing {0} on cell {1}.", _files[indexFile], indexCell);
         }
 
@@ -152,8 +143,13 @@ namespace MediaPlayerTests
             if (indexCell < 0)
                 return;
 
-            Debug.Assert(_threads[indexCell] != null);
-            _threads[indexCell].Stop();
+            if (_wrappers[indexCell] != null)
+            {
+                _wrappers[indexCell].Close();
+                _wrappers[indexCell] = null;
+
+                _cells[indexCell].Children.Clear();
+            }
         }
     }
 }
